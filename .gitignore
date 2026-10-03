@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------------------
+# PropertyAI Lahore — root .gitignore
+# Python / FastAPI project developed in VS Code.
+# ---------------------------------------------------------------------------
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment / secrets (never commit real credentials)
+.env
+.env.*
+!.env.example
+
+# Editors / IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+
+# Local ML artifacts
+models/*.joblib
+models/*.pkl
+models/*.pickle
+
+# Raw property data (immutable captures — kept locally, not committed)
+data/raw/
+
+# Generated processed datasets (reproducible from raw data)
+data/processed/
+
+# Temporary files
+tmp/
+temp/
+
+# ---------------------------------------------------------------------------
+# Explicitly tracked — never ignore these:
+#   source code, Markdown governance documents, docs/, scripts/, backend/,
+#   frontend/, data/reference/, data/schema.md, data/dictionaries/
+# ---------------------------------------------------------------------------
+!data/reference/
+!data/schema.md
+!data/dictionaries/
