@@ -1,0 +1,5 @@
+{
+  "artifact": "lahore_house_sale_model.joblib",
+  "sha256": "5609684d524a68bcf3bca0e653db1c85bf2fb874ccf6391de85babce8eacb910",
+  "training_scope": "Historical Lahore house-sale listings"
+}

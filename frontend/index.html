@@ -1,31 +1,80 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PropertyAI Lahore — Valuation Desk</title>
-<style>
-:root{--bg:#071019;--panel:#0d1824;--panel2:#111f2d;--line:#223446;--text:#eef5f7;--muted:#93a8ba;--a:#70e0b3;--b:#78b8ff}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#173b50 0,transparent 32%),var(--bg);color:var(--text);font:15px Inter,system-ui,sans-serif}
-.app{max-width:1240px;margin:auto;padding:22px}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:18px}.brand{font-weight:900;font-size:21px}.brand span{color:var(--a)}.status{font-size:12px;color:#b8cad7}.dot{display:inline-block;width:8px;height:8px;background:var(--a);border-radius:50%;margin-right:6px}
-.layout{display:grid;grid-template-columns:210px 1fr;gap:22px;padding-top:22px}.nav{border-right:1px solid var(--line);padding-right:18px}.nav button{width:100%;background:transparent;border:0;color:var(--muted);padding:12px;text-align:left;border-radius:10px;margin-bottom:5px;cursor:pointer}.nav button.active,.nav button:hover{background:var(--panel2);color:var(--text)}
-.eyebrow{color:var(--a);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:800}.hero h1{font-size:42px;margin:7px 0}.hero p{color:var(--muted);max-width:720px;line-height:1.6}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:20px}.card{background:rgba(13,24,36,.92);border:1px solid var(--line);border-radius:18px;padding:20px}.card h2{margin:0 0 16px;font-size:18px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:13px}.field label{display:block;font-size:12px;color:#b7c8d5;margin-bottom:7px}.field input,.field select{width:100%;padding:12px;border-radius:10px;background:#08131f;color:var(--text);border:1px solid var(--line);outline:none}.field input:focus,.field select:focus{border-color:var(--b)}.wide{grid-column:1/-1}button.primary{width:100%;padding:14px;border:0;border-radius:11px;background:linear-gradient(135deg,var(--a),#52c9d5);color:#06130f;font-weight:900;cursor:pointer;margin-top:16px}.price{font-size:43px;font-weight:900;margin:8px 0}.range{font-size:14px;color:var(--muted)}.bar{height:9px;background:#07111a;border-radius:99px;margin:20px 0;overflow:hidden}.bar i{display:block;height:100%;width:55%;background:linear-gradient(90deg,var(--b),var(--a));border-radius:99px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;color:#c7d7e3;font-size:12px}.foot{color:#71889a;font-size:11px;line-height:1.6;margin-top:18px}.error{color:#ff9e9e;margin-top:10px;font-size:12px}
-@media(max-width:850px){.layout{grid-template-columns:1fr}.nav{border-right:0;border-bottom:1px solid var(--line);padding:0 0 12px}.grid{grid-template-columns:1fr}.fields{grid-template-columns:1fr}.hero h1{font-size:34px}}
-</style></head>
-<body><div class="app">
-<div class="top"><div class="brand">Property<span>AI</span> Lahore</div><div class="status"><span class="dot"></span>Valuation engine</div></div>
-<div class="layout"><aside class="nav"><button class="active">◉ Valuation desk</button><button>⌖ Comparables</button><button>▤ Market signals</button><button>◌ Data quality</button><div class="foot">Lahore-first property intelligence. Historical listing data is used for the current model.</div></aside>
-<main><div class="hero"><div class="eyebrow">Lahore property intelligence</div><h1>Know the range before you price.</h1><p>Estimate a property's asking-price range from its location, size and core characteristics. The system is designed to grow into a multi-source valuation and comparable-property platform.</p></div>
-<div class="grid"><section class="card"><h2>Property profile</h2><form id="f"><div class="fields">
-<div class="field wide"><label>Society / locality</label><input id="location" value="DHA Defence, DHA Phase 6" required></div>
-<div class="field"><label>Area (sq ft)</label><input id="area_sqft" type="number" value="2722" min="100" required></div>
-<div class="field"><label>Bedrooms</label><input id="bedrooms" type="number" value="5" min="0" required></div>
-<div class="field"><label>Bathrooms</label><input id="bathrooms" type="number" value="6" min="0" required></div>
-<div class="field"><label>Condition</label><select><option>Good</option><option>Brand new</option><option>Renovated</option><option>Needs work</option></select></div>
-<div class="field"><label>Utilities</label><select><option>Electricity + Gas + Water</option><option>Electricity + Water</option><option>Unknown</option></select></div>
-<div class="field"><label>Solar</label><select><option>Unknown</option><option>Yes</option><option>No</option></select></div>
-</div><button class="primary" id="go">Run valuation →</button><div id="err" class="error"></div></form></section>
-<section class="card"><div class="eyebrow">Estimated market range</div><div class="price" id="price">—</div><div class="range" id="range">Run the valuation to see the model estimate.</div><div class="bar"><i id="bar"></i></div><div class="chips"><span class="chip">Lahore</span><span class="chip">House</span><span class="chip">Sale</span><span class="chip">Historical-data model</span></div><div class="foot" id="note">This is an automated estimate, not a verified transaction valuation. The current training data is historical listing data and can contain asking-price bias.</div></section></div>
-</main></div></div>
-<script>
-const f=document.getElementById('f');f.addEventListener('submit',async e=>{e.preventDefault();const go=document.getElementById('go');const err=document.getElementById('err');err.textContent='';go.disabled=true;go.textContent='Calculating…';try{const body={location:document.getElementById('location').value,area_sqft:Number(document.getElementById('area_sqft').value),bedrooms:Number(document.getElementById('bedrooms').value),bathrooms:Number(document.getElementById('bathrooms').value)};const r=await fetch('http://127.0.0.1:8000/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error();const x=await r.json();const fmt=n=>new Intl.NumberFormat('en-PK',{style:'currency',currency:'PKR',maximumFractionDigits:0}).format(n);document.getElementById('price').textContent=fmt(x.estimated_price_pkr);document.getElementById('range').textContent=`${fmt(x.low_pkr)} — ${fmt(x.high_pkr)}`;document.getElementById('bar').style.width='70%';document.getElementById('note').textContent=x.note}catch(e){err.textContent='API unavailable. Start FastAPI on port 8000.'}finally{go.disabled=false;go.textContent='Run valuation →'}})
-</script></body></html>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="EstateIQ property valuation, informed by data. Starting in Lahore.">
+  <title>EstateIQ — Property Valuation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="wordmark" href="#top" aria-label="EstateIQ">
+      <span class="wordmark-mark" aria-hidden="true">E</span>
+      <span>ESTATE<span class="accent">IQ</span> <b>LAHORE</b></span>
+    </a>
+    <p>Property valuation, informed by data.</p>
+  </header>
+
+  <main id="top">
+    <section class="calculator-layout" aria-labelledby="page-title">
+      <div class="intro">
+        <p class="eyebrow">Lahore property valuation</p>
+        <h1 id="page-title">Know what your<br><em>property is worth.</em></h1>
+        <p class="intro-copy">Get an estimated asking price for a Lahore house using its characteristics and historical market data.</p>
+        <div class="architectural-accent" aria-hidden="true">
+          <div class="accent-sun"></div><div class="accent-house"><i></i><i></i><i></i></div>
+          <span>LAHORE / PROPERTY STUDY</span>
+        </div>
+      </div>
+
+      <form id="valuation-form" class="calculator" novalidate>
+        <div class="form-heading"><span>PROPERTY VALUATION</span><small><i></i> LAHORE / HOUSE</small></div>
+        <fieldset class="intent-fieldset">
+          <legend>What are you looking to do?</legend>
+          <div class="intent-options" role="group" aria-label="Purpose">
+            <button class="intent-option active" type="button" data-intent="sell">Sell</button>
+            <button class="intent-option" type="button" data-intent="buy">Buy</button>
+            <button class="intent-option" type="button" data-intent="rent">Rent</button>
+          </div>
+          <p id="intent-message" class="field-note" role="status">Indicative asking-price estimate for a property you may sell.</p>
+        </fieldset>
+        <div class="form-grid">
+          <div class="field full"><label for="location">Location</label><input id="location" name="location" value="DHA Defence, DHA Phase 6" placeholder="DHA Phase 6, Johar Town, Gulberg..." required maxlength="200"><small>Lahore locality or society</small></div>
+          <div class="field"><label for="property-type">Property type</label><select id="property-type" disabled><option>House</option></select></div>
+          <div class="field"><label for="area_sqft">Property area <span>(sq ft)</span></label><input id="area_sqft" name="area_sqft" type="number" value="2722" min="101" max="100000" required></div>
+          <div class="field"><label for="bedrooms">Bedrooms</label><input id="bedrooms" name="bedrooms" type="number" value="5" min="0" max="20" required></div>
+          <div class="field"><label for="bathrooms">Bathrooms</label><input id="bathrooms" name="bathrooms" type="number" value="6" min="0" max="20" required></div>
+        </div>
+        <button class="primary-button" id="submit-button" type="submit">Calculate Property Value <span aria-hidden="true">→</span></button>
+        <p id="form-message" class="form-message" role="status" aria-live="polite">Enter property details to begin.</p>
+      </form>
+    </section>
+
+    <section class="result-section" aria-labelledby="result-title">
+      <div class="result-card">
+        <div id="result-empty" class="result-empty"><p class="eyebrow">Your valuation</p><h2>Property details<br><em>become context.</em></h2><p>Complete the calculator to see an estimated asking price.</p></div>
+        <div id="result-content" hidden>
+          <div class="result-topline"><span>PROPERTY VALUATION</span><span>HISTORICAL DATA · <b id="dataset-year">2020</b> BASELINE</span></div>
+          <h2 id="result-title">DHA Defence, DHA Phase 6</h2>
+          <p id="result-summary" class="result-summary"></p>
+          <p class="estimate-label">Estimated asking price</p>
+          <p id="estimate-crore" class="estimate-crore">—</p>
+          <p id="estimate-pkr" class="estimate-pkr">—</p>
+          <div class="result-meta"><div><span>Estimate confidence</span><strong id="confidence">Limited</strong></div><div><span>Data basis</span><strong>Historical Lahore listings</strong></div></div>
+          <p class="interval-note" id="interval-note">Prediction range is not currently calibrated.</p>
+          <p class="disclaimer">This is an estimated asking price based on historical property listings. It is not a verified transaction price or formal property valuation.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="trends-section" aria-labelledby="trends-title">
+      <div class="trends-heading"><p class="eyebrow">Model sensitivity</p><h2 id="trends-title">Estimated Value by Property Size</h2><p>Indicative model estimates for the selected locality and property characteristics as area changes.</p></div>
+      <div id="sensitivity-state" class="trend-empty" role="status"><div class="chart-mark" aria-hidden="true"><span></span><span></span><span></span></div><h3 id="sensitivity-title">Calculate a valuation to see size sensitivity.</h3><p id="sensitivity-message">The model will estimate values for nearby property sizes using the same selected inputs.</p><small>Model-generated estimates based on historical Lahore listings. These are not a forecast of future market prices.</small></div>
+      <div id="sensitivity-chart" class="sensitivity-chart" hidden aria-label="Estimated value by property size"></div>
+    </section>
+  </main>
+  <footer class="site-footer"><span>ESTATE<span class="accent">IQ</span> LAHORE</span><span>Historical asking-price context · Lahore only</span></footer>
+  <script src="app.js"></script>
+</body>
+</html>
