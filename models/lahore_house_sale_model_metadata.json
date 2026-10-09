@@ -1,0 +1,52 @@
+{
+  "model_type": "RandomForestRegressor",
+  "selected_model_name": "random_forest",
+  "dataset_name": "lahore_house_sale.csv",
+  "dataset_date": "2020-05-15",
+  "training_timestamp_utc": "2026-10-08T11:30:56.420932+00:00",
+  "feature_list": [
+    "location",
+    "area_sqft",
+    "bedrooms",
+    "bathrooms",
+    "latitude",
+    "longitude"
+  ],
+  "training_rows": 31476,
+  "test_rows": 7870,
+  "mae_pkr": 3988127.1468964927,
+  "rmse_pkr": 12048721.270061985,
+  "r2": 0.8584037910287715,
+  "median_absolute_error_pkr": 1365689.7810704308,
+  "residual_mean_pkr": -507633.7401756604,
+  "residual_median_pkr": -44967.43552872073,
+  "residual_std_pkr": 12038022.770765942,
+  "residual_q05_pkr": -9305767.16532053,
+  "residual_q95_pkr": 7411338.972532203,
+  "absolute_error_q95_pkr": 14587553.688235257,
+  "preprocessing": {
+    "target": "price_pkr",
+    "target_transform": "log1p",
+    "categorical": "location imputed with most frequent value and one-hot encoded",
+    "numeric": "median imputation for area_sqft, bedrooms, bathrooms, latitude, longitude where present"
+  },
+  "held_out_error_statistics": {
+    "model": "random_forest",
+    "residual_definition": "predicted_price_minus_actual_price",
+    "residual_mean_pkr": -507633.7401756604,
+    "residual_median_pkr": -44967.43552872073,
+    "residual_std_pkr": 12038022.770765942,
+    "residual_q05_pkr": -9305767.16532053,
+    "residual_q95_pkr": 7411338.972532203,
+    "absolute_error_q95_pkr": 14587553.688235257
+  },
+  "prediction_interval_status": "not_calibrated",
+  "limitations": [
+    "This evaluation is a historical snapshot benchmark and is not evidence of current 2026 predictive performance.",
+    "The source is a historical listing snapshot with listings dated in 2019.",
+    "Prices are asking prices, not verified transaction prices.",
+    "Random splitting is used because no reliable current temporal validation frame exists.",
+    "The model is a bootstrap benchmark and is not production-ready."
+  ],
+  "historical_data_warning": "This evaluation is a historical snapshot benchmark and is not evidence of current 2026 predictive performance."
+}

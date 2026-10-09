@@ -1,181 +1,199 @@
+"""Benchmark and train the historical Lahore house-sale model."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
 from pathlib import Path
-import re, json, warnings
+
+import joblib
 import numpy as np
 import pandas as pd
-import joblib
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
+from sklearn.dummy import DummyRegressor
+from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, median_absolute_error
+from sklearn.metrics import (
+    mean_absolute_error,
+    mean_squared_error,
+    median_absolute_error,
+    r2_score,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-warnings.filterwarnings("ignore")
+
 BASE = Path(__file__).resolve().parents[1]
-RAW = BASE / "data" / "raw" / "zameen_property_data.csv"
-PROC = BASE / "data" / "processed" / "lahore_houses_clean.csv"
+DATA = BASE / "data" / "processed" / "lahore_house_sale.csv"
 MODEL_DIR = BASE / "models"
-MODEL_DIR.mkdir(exist_ok=True)
-PROC.parent.mkdir(parents=True, exist_ok=True)
+MODEL_PATH = MODEL_DIR / "lahore_house_sale_model.joblib"
+METRICS_PATH = MODEL_DIR / "metrics.json"
+METADATA_PATH = MODEL_DIR / "lahore_house_sale_model_metadata.json"
+RANDOM_STATE = 42
 
-if not RAW.exists():
-    raise SystemExit("Real dataset not found. Run: python scripts/download_open_data.py")
 
-df = pd.read_csv(RAW, low_memory=False)
-df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
+def build_preprocessor(categorical: list[str], numeric: list[str]) -> ColumnTransformer:
+    return ColumnTransformer(
+        [
+            (
+                "location",
+                Pipeline(
+                    [
+                        ("imputer", SimpleImputer(strategy="most_frequent")),
+                        ("onehot", OneHotEncoder(handle_unknown="ignore")),
+                    ]
+                ),
+                categorical,
+            ),
+            (
+                "numeric",
+                Pipeline([("imputer", SimpleImputer(strategy="median"))]),
+                numeric,
+            ),
+        ]
+    )
 
-def pick(*names):
-    for n in names:
-        if n in df.columns:
-            return n
-    return None
 
-price_col = pick("price", "price_pkr")
-city_col = pick("city")
-ptype_col = pick("property_type", "propertytype")
-purpose_col = pick("purpose")
-location_col = pick("location", "area")
-beds_col = pick("bedrooms", "beds")
-baths_col = pick("bath", "baths", "bathrooms")
-area_col = pick("area", "area_size")
-area_type_col = pick("area_type", "area_unit")
-lat_col = pick("latitude", "lat")
-lon_col = pick("longitude", "lng", "lon")
-
-required = [price_col, city_col, ptype_col, purpose_col, location_col, area_col]
-if any(x is None for x in required):
-    raise SystemExit(f"Could not map required columns. Found: {list(df.columns)}")
-
-# Lahore + house + sale only. Purpose/property type matching is deliberately broad.
-x = df.copy()
-x[city_col] = x[city_col].astype(str).str.strip()
-x[ptype_col] = x[ptype_col].astype(str).str.lower()
-x[purpose_col] = x[purpose_col].astype(str).str.lower()
-
-x = x[x[city_col].str.lower().eq("lahore")]
-x = x[x[ptype_col].str.contains("house", na=False)]
-x = x[x[purpose_col].str.contains("sale|sell|buy", na=False)]
-
-# Numeric conversion
-for c in [price_col, beds_col, baths_col, area_col, lat_col, lon_col]:
-    if c:
-        x[c] = pd.to_numeric(x[c], errors="coerce")
-
-# Area normalization. The old dataset can encode area in marla/kanal/sqft.
-unit = x[area_type_col].astype(str).str.lower() if area_type_col else pd.Series("", index=x.index)
-area = pd.to_numeric(x[area_col], errors="coerce")
-
-def area_to_sqft(a, u):
-    u = str(u).lower()
-    if "kanal" in u:
-        return a * 5445
-    if "marla" in u:
-        return a * 272.25
-    if "sq" in u or "feet" in u or "ft" in u:
-        return a
-    # Many versions of the dataset use Area Size like "5 Marla" in a text column.
-    return a
-
-x["area_sqft"] = [area_to_sqft(a, u) for a, u in zip(area, unit)]
-x["area_sqft"] = pd.to_numeric(x["area_sqft"], errors="coerce")
-
-# If the area column contains strings such as "10 Marla", recover the number/unit.
-if x["area_sqft"].isna().mean() > 0.2:
-    raw_area = df.loc[x.index, area_col].astype(str)
-    nums = pd.to_numeric(raw_area.str.extract(r"([0-9]+(?:\.[0-9]+)?)")[0], errors="coerce")
-    units = raw_area.str.lower()
-    x.loc[nums.notna(), "area_sqft"] = [
-        area_to_sqft(a, u) for a, u in zip(nums[nums.notna()], units[nums.notna()])
-    ]
-
-x["price_pkr"] = pd.to_numeric(x[price_col], errors="coerce")
-x["bedrooms_clean"] = pd.to_numeric(x[beds_col], errors="coerce") if beds_col else np.nan
-x["bathrooms_clean"] = pd.to_numeric(x[baths_col], errors="coerce") if baths_col else np.nan
-x["location_clean"] = x[location_col].astype(str).str.strip()
-
-# Drop impossible values and duplicates.
-x = x[(x["price_pkr"] > 0) & (x["area_sqft"] > 0)]
-x = x[(x["area_sqft"] >= 200) & (x["area_sqft"] <= 100000)]
-x = x[(x["price_pkr"] >= 300000) & (x["price_pkr"] <= 2_000_000_000)]
-
-id_col = pick("property_id", "propertyid", "id")
-if id_col:
-    x = x.drop_duplicates(subset=[id_col])
-else:
-    x = x.drop_duplicates(subset=["location_clean","price_pkr","area_sqft","bedrooms_clean","bathrooms_clean"])
-
-# Remove extreme price/area combinations using robust price-per-sqft bounds.
-x["price_per_sqft"] = x["price_pkr"] / x["area_sqft"]
-lo, hi = x["price_per_sqft"].quantile([0.01, 0.99])
-x = x[x["price_per_sqft"].between(lo, hi)]
-
-features = pd.DataFrame({
-    "location": x["location_clean"],
-    "area_sqft": x["area_sqft"],
-    "bedrooms": x["bedrooms_clean"],
-    "bathrooms": x["bathrooms_clean"],
-})
-if lat_col: features["latitude"] = x[lat_col]
-if lon_col: features["longitude"] = x[lon_col]
-
-y = np.log1p(x["price_pkr"].astype(float))
-
-cat = ["location"]
-num = [c for c in features.columns if c not in cat]
-
-pre = ColumnTransformer([
-    ("cat", Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore"))
-    ]), cat),
-    ("num", Pipeline([
-        ("imputer", SimpleImputer(strategy="median"))
-    ]), num)
-])
-
-Xtr, Xte, ytr, yte = train_test_split(features, y, test_size=0.2, random_state=42)
-
-models = {
-    "random_forest": RandomForestRegressor(
-        n_estimators=350, max_depth=28, min_samples_leaf=2, n_jobs=-1, random_state=42
-    ),
-    "extra_trees": ExtraTreesRegressor(
-        n_estimators=350, max_depth=32, min_samples_leaf=2, n_jobs=-1, random_state=42
-    ),
-}
-
-results = {}
-trained = {}
-for name, reg in models.items():
-    pipe = Pipeline([("preprocess", pre), ("model", reg)])
-    pipe.fit(Xtr, ytr)
-    pred = np.expm1(pipe.predict(Xte))
-    actual = np.expm1(yte)
-    results[name] = {
-        "mae_pkr": float(mean_absolute_error(actual, pred)),
-        "rmse_pkr": float(mean_squared_error(actual, pred) ** 0.5),
-        "median_absolute_error_pkr": float(median_absolute_error(actual, pred)),
-        "r2": float(r2_score(actual, pred)),
-        "rows": int(len(x))
+def evaluate(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
+    residuals = predicted - actual
+    return {
+        "mae_pkr": float(mean_absolute_error(actual, predicted)),
+        "rmse_pkr": float(mean_squared_error(actual, predicted) ** 0.5),
+        "r2": float(r2_score(actual, predicted)),
+        "median_absolute_error_pkr": float(median_absolute_error(actual, predicted)),
+        "residual_mean_pkr": float(np.mean(residuals)),
+        "residual_median_pkr": float(np.median(residuals)),
+        "residual_std_pkr": float(np.std(residuals)),
+        "residual_q05_pkr": float(np.quantile(residuals, 0.05)),
+        "residual_q95_pkr": float(np.quantile(residuals, 0.95)),
+        "absolute_error_q95_pkr": float(np.quantile(np.abs(residuals), 0.95)),
     }
-    trained[name] = pipe
 
-best = min(results, key=lambda k: results[k]["mae_pkr"])
-joblib.dump(trained[best], MODEL_DIR / "lahore_house_sale_model.joblib")
 
-x.to_csv(PROC, index=False)
-(MODEL_DIR / "metrics.json").write_text(json.dumps({
-    "best_model": best,
-    "results": results,
-    "dataset_rows_after_cleaning": int(len(x)),
-    "source": "Open Data Pakistan / Zameen Property Data",
-    "note": "Historical listing data; not current market truth."
-}, indent=2), encoding="utf-8")
+def main() -> None:
+    if not DATA.exists():
+        raise SystemExit(f"Processed dataset not found: {DATA}. Run scripts/prepare_lahore.py first.")
 
-print(json.dumps({
-    "best_model": best,
-    "results": results,
-    "clean_rows": len(x),
-    "processed": str(PROC),
-}, indent=2))
+    data = pd.read_csv(DATA)
+    required = {"price_pkr", "location", "area_sqft", "bedrooms", "bathrooms"}
+    missing = required.difference(data.columns)
+    if missing:
+        raise SystemExit(f"Processed dataset is missing required columns: {sorted(missing)}")
+
+    categorical = ["location"]
+    numeric = ["area_sqft", "bedrooms", "bathrooms"]
+    for optional in ["latitude", "longitude"]:
+        if optional in data.columns and data[optional].notna().any():
+            numeric.append(optional)
+
+    features = data[categorical + numeric].copy()
+    target = pd.to_numeric(data["price_pkr"], errors="coerce")
+    usable = target.gt(0) & features["area_sqft"].gt(0)
+    features = features.loc[usable].reset_index(drop=True)
+    target = target.loc[usable].reset_index(drop=True)
+
+    x_train, x_test, y_train, y_test = train_test_split(
+        features,
+        target,
+        test_size=0.2,
+        random_state=RANDOM_STATE,
+    )
+    y_train_log = np.log1p(y_train)
+    actual = y_test.to_numpy(dtype=float)
+
+    regressors = {
+        "median_baseline": DummyRegressor(strategy="median"),
+        "random_forest": RandomForestRegressor(
+            n_estimators=350,
+            max_depth=28,
+            min_samples_leaf=2,
+            n_jobs=-1,
+            random_state=RANDOM_STATE,
+        ),
+        "extra_trees": ExtraTreesRegressor(
+            n_estimators=350,
+            max_depth=32,
+            min_samples_leaf=2,
+            n_jobs=-1,
+            random_state=RANDOM_STATE,
+        ),
+    }
+
+    trained: dict[str, Pipeline] = {}
+    results: dict[str, dict[str, float]] = {}
+    predictions: dict[str, np.ndarray] = {}
+    for name, regressor in regressors.items():
+        pipeline = Pipeline(
+            [
+                ("preprocess", build_preprocessor(categorical, numeric)),
+                ("model", regressor),
+            ]
+        )
+        pipeline.fit(x_train, y_train_log)
+        predicted = np.maximum(0, np.expm1(pipeline.predict(x_test)))
+        trained[name] = pipeline
+        predictions[name] = predicted
+        results[name] = evaluate(actual, predicted)
+
+    best_name = min(results, key=lambda name: results[name]["mae_pkr"])
+    best_pipeline = trained[best_name]
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(best_pipeline, MODEL_PATH)
+
+    timestamp = datetime.now(timezone.utc).isoformat()
+    warning = (
+        "This evaluation is a historical snapshot benchmark and is not evidence of current "
+        "2026 predictive performance."
+    )
+    metrics = {
+        "dataset_name": "lahore_house_sale.csv",
+        "dataset_date": "2020-05-15",
+        "evaluation_method": "random 80/20 train/test split",
+        "random_state": RANDOM_STATE,
+        "target_transform": "log1p(price_pkr), predictions converted back with expm1",
+        "training_rows": int(len(x_train)),
+        "test_rows": int(len(x_test)),
+        "features": categorical + numeric,
+        "results": results,
+        "selected_model": best_name,
+        "historical_data_warning": warning,
+    }
+    metadata = {
+        "model_type": type(regressors[best_name]).__name__,
+        "selected_model_name": best_name,
+        "dataset_name": "lahore_house_sale.csv",
+        "dataset_date": "2020-05-15",
+        "training_timestamp_utc": timestamp,
+        "feature_list": categorical + numeric,
+        "training_rows": int(len(x_train)),
+        "test_rows": int(len(x_test)),
+        **results[best_name],
+        "preprocessing": {
+            "target": "price_pkr",
+            "target_transform": "log1p",
+            "categorical": "location imputed with most frequent value and one-hot encoded",
+            "numeric": "median imputation for area_sqft, bedrooms, bathrooms, latitude, longitude where present",
+        },
+        "held_out_error_statistics": {
+            "model": best_name,
+            "residual_definition": "predicted_price_minus_actual_price",
+            **{key: value for key, value in results[best_name].items() if "residual" in key or "error_q95" in key},
+        },
+        "prediction_interval_status": "not_calibrated",
+        "limitations": [
+            warning,
+            "The source is a historical listing snapshot with listings dated in 2019.",
+            "Prices are asking prices, not verified transaction prices.",
+            "Random splitting is used because no reliable current temporal validation frame exists.",
+            "The model is a bootstrap benchmark and is not production-ready.",
+        ],
+        "historical_data_warning": warning,
+    }
+    METRICS_PATH.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    METADATA_PATH.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    print(json.dumps({"selected_model": best_name, "results": results, "model": str(MODEL_PATH)}, indent=2))
+
+
+if __name__ == "__main__":
+    main()

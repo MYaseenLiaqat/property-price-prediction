@@ -1,0 +1,57 @@
+{
+  "dataset_name": "lahore_house_sale.csv",
+  "dataset_date": "2020-05-15",
+  "evaluation_method": "random 80/20 train/test split",
+  "random_state": 42,
+  "target_transform": "log1p(price_pkr), predictions converted back with expm1",
+  "training_rows": 31476,
+  "test_rows": 7870,
+  "features": [
+    "location",
+    "area_sqft",
+    "bedrooms",
+    "bathrooms",
+    "latitude",
+    "longitude"
+  ],
+  "results": {
+    "median_baseline": {
+      "mae_pkr": 15401856.035578145,
+      "rmse_pkr": 33099952.231233068,
+      "r2": -0.06862282097875094,
+      "median_absolute_error_pkr": 8499999.999999987,
+      "residual_mean_pkr": -8387826.30241422,
+      "residual_median_pkr": 1.30385160446167e-08,
+      "residual_std_pkr": 32019544.150884457,
+      "residual_q05_pkr": -48499999.999999985,
+      "residual_q95_pkr": 12010000.000000013,
+      "absolute_error_q95_pkr": 48499999.999999985
+    },
+    "random_forest": {
+      "mae_pkr": 3988127.1468964927,
+      "rmse_pkr": 12048721.270061985,
+      "r2": 0.8584037910287715,
+      "median_absolute_error_pkr": 1365689.7810704308,
+      "residual_mean_pkr": -507633.7401756604,
+      "residual_median_pkr": -44967.43552872073,
+      "residual_std_pkr": 12038022.770765942,
+      "residual_q05_pkr": -9305767.16532053,
+      "residual_q95_pkr": 7411338.972532203,
+      "absolute_error_q95_pkr": 14587553.688235257
+    },
+    "extra_trees": {
+      "mae_pkr": 4080531.872685201,
+      "rmse_pkr": 12525860.670506919,
+      "r2": 0.8469670804879392,
+      "median_absolute_error_pkr": 1446100.4063810539,
+      "residual_mean_pkr": -771437.1556671071,
+      "residual_median_pkr": -54165.076602557674,
+      "residual_std_pkr": 12502082.636577327,
+      "residual_q05_pkr": -10049968.8256732,
+      "residual_q95_pkr": 7490649.759703101,
+      "absolute_error_q95_pkr": 14813987.42789261
+    }
+  },
+  "selected_model": "random_forest",
+  "historical_data_warning": "This evaluation is a historical snapshot benchmark and is not evidence of current 2026 predictive performance."
+}

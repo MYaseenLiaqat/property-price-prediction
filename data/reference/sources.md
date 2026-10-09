@@ -1,10 +1,34 @@
 # Lahore PropertyAI data sources
 
-## Primary / training sources
-1. Open Data Pakistan — Zameen Property Data
-   - URL: https://opendata.com.pk/dataset/property-data-for-pakistan
-   - License shown by the publisher: Creative Commons Attribution.
-   - Historical snapshot; use as a reproducible baseline, not as current market truth.
+## Primary / training source
+
+### Zameen Property Data.csv
+
+- **Source organization:** Open Data Pakistan
+- **Dataset name:** Zameen Property Data.csv
+- **Dataset page:** https://opendata.com.pk/dataset/property-data-for-pakistan
+- **Resource URL:** https://opendata.com.pk/dataset/property-data-for-pakistan/resource/2cb1eeea-8dff-41b4-845f-28b8d75ca23b
+- **License:** Creative Commons Attribution, as stated by the publisher
+- **Original dataset date:** Last updated 2020-05-15 according to the publisher
+- **Download/collection date:** Recorded in `historical_lahore_data_report.json` when the local
+  raw file is downloaded or inspected
+- **Geographic coverage:** Pakistan, including Lahore, Islamabad, Karachi, Rawalpindi and
+  Faisalabad records
+- **Observed listing period:** The source `date_added` field contains 2019 dates. This is a
+  historical snapshot and not a current 2026 feed.
+- **Intended use in this project:** Reproducible bootstrap data foundation and historical
+  Lahore house-sale model benchmark only.
+- **Known limitations:** The dataset is an old marketplace listing snapshot; it contains asking
+  prices rather than verified transaction prices, has no current inventory, has no Lahore rent
+  rows in the downloaded snapshot, and does not provide the provenance and temporal coverage
+  required for a current-market model.
+
+The raw CSV is downloaded to `data/raw/zameen_property_data.csv` and is ignored by Git.
+Generated reports record the observed schema, counts, missingness, filtering and limitations.
+
+Historical listing data must remain distinct from current market data. A listing price is an
+asking price, not a verified transaction price. Model outputs based on this source must be
+described as historical-data estimates and must not be presented as current 2026 market truth.
 
 2. Zameen.com
    - Public Lahore sale/rent listing pages and Zameen Index.
